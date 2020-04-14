@@ -1,24 +1,23 @@
-package org.cloudbus.cloudsim.examples;
-
-import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-
 /*
  * Title:        EE5903
  * Description:  CloudSim (Cloud Simulation) for FESTAL algorithm
  *
  * Author: Li Xiang A0115448E
  */
+import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 
  import org.cloudbus.cloudsim.Cloudlet;
- import org.cloudbus.cloudsim.CloudletSchedulerTimeShared;
+import org.cloudbus.cloudsim.CloudletScheduler;
+import org.cloudbus.cloudsim.CloudletSchedulerTimeShared;
  import org.cloudbus.cloudsim.Datacenter;
  import org.cloudbus.cloudsim.DatacenterBroker;
  import org.cloudbus.cloudsim.DatacenterCharacteristics;
@@ -33,9 +32,11 @@ import org.cloudbus.cloudsim.VmAllocationPolicy;
 import org.cloudbus.cloudsim.VmAllocationPolicySimple;
  import org.cloudbus.cloudsim.VmSchedulerTimeShared;
  import org.cloudbus.cloudsim.core.CloudSim;
- import org.cloudbus.cloudsim.core.SimEntity;
+import org.cloudbus.cloudsim.core.CloudSimTags;
+import org.cloudbus.cloudsim.core.SimEntity;
  import org.cloudbus.cloudsim.core.SimEvent;
- import org.cloudbus.cloudsim.provisioners.BwProvisionerSimple;
+import org.cloudbus.cloudsim.lists.VmList;
+import org.cloudbus.cloudsim.provisioners.BwProvisionerSimple;
  import org.cloudbus.cloudsim.provisioners.PeProvisionerSimple;
  import org.cloudbus.cloudsim.provisioners.RamProvisionerSimple;
 
@@ -62,9 +63,15 @@ public class FESTAL {
 			// Second step: Create Datacenters
 			//Datacenters are the resource providers in CloudSim. We need at list one of them to run a CloudSim simulation
 			Datacenter datacenter0 = createDatacenter("Datacenter_0");
+			
+			Mapping m = new Mapping();
+			
+			m.setHostList(datacenter0.getHostList());
+			
+			globalBroker.setMapping(m);
 
 			//Third step: Create Broker
-			DatacenterBroker broker = createBroker("Broker_0");
+			FESTALDatacenterBroker broker = createBroker("Broker_0",m);
 			int brokerId = broker.getId();
 
 			//Fourth step: Create VMs and Cloudlets and send them to broker
@@ -80,7 +87,7 @@ public class FESTAL {
 			// Final step: Print results when simulation is over
 			List<Cloudlet> newList = broker.getCloudletReceivedList();
 //			newList.addAll(globalBroker.getBroker().getCloudletReceivedList());
-			List<DatacenterBroker> borkerList= globalBroker.getBrokers();
+			List<FESTALDatacenterBroker> borkerList= globalBroker.getBrokers();
 			for (int i=0; i<borkerList.size(); i++) {
 				newList.addAll(borkerList.get(i).getCloudletReceivedList());
 			}
@@ -100,15 +107,7 @@ public class FESTAL {
 	public static class PrimaryVmAllocation extends VmAllocationPolicy {
 		//To track the Host for each Vm. The string is the unique Vm identifier, composed by its id and its userId
 		private Map<String, Host> vmTable;
-		
-		//To track the primary Vm for each Host. The string is the unique Vm identifier, composed by its id and its userId
-		private Map<Integer, List<Host>> hostTable;
-		
-		private LinkedList<Integer> primaryNumber = new LinkedList<Integer> ();
-		
-		// defined in the algorithm
-		private double a = 0.2;
-		
+
 		public PrimaryVmAllocation(List<? extends Host> list) {
 			super(list);
 			vmTable = new HashMap<>();
@@ -123,19 +122,15 @@ public class FESTAL {
 			// We must recover the Host which hosting Vm
 			return this.vmTable.get(Vm.getUid(userId, vmId));
 		}
-		
+
 		public boolean allocateHostForVm(Vm vm, Host host) {
-			Collections.sort(primaryNumber);
-			for(int i=0; i<primaryNumber.size()/a; i++) {
-				
-			}
-			
-			if (host.vmCreate(vm)) {
-				//the host is appropriate, we track it
-				vmTable.put(vm.getUid(), host);
-				return true;
-			}
-			return false;
+
+	        if (host.vmCreate(vm)) {
+	            //the host is appropriate, we track it
+	            vmTable.put(vm.getUid(), host);
+	            return true;
+	        }
+	        return false;
 		}
 
 		public boolean allocateHostForVm(Vm vm) {
@@ -154,18 +149,18 @@ public class FESTAL {
 	        vmTable.remove(vm.getUid());
 	        host.vmDestroy(vm);
 	    }
-	    
+
 	    @Override
 	    public void deallocateHostForVm(Vm v) {
 	        //get the host and remove the vm
 	    	//TODO: why don't need to remove host from the table??
 	        vmTable.get(v.getUid()).vmDestroy(v);
 	    }
-		
+
 	    public Object optimizeAllocation() {
 	        return null;
 	    }
-	    
+
 	    @Override
 	    public List<Map<String, Object>> optimizeAllocation(List<? extends Vm> arg0) {
 	        //Static scheduling, no migration, return null;
@@ -173,11 +168,44 @@ public class FESTAL {
 	    }
 	}
 
+	public static class Mapping {
+		private List<Host> hostList;
+		private int[] hostPrimary;
+		
+		private Map<Integer, Integer> vmFinishTime;
+		
+		public Mapping() {
+			
+		}
+		public void setHostList (List<Host> hostList) {
+			this.hostList = hostList;
+			hostPrimary = new int[hostList.size()];
+		}
+		private void addPrimary (int hostId) {
+			hostPrimary[hostId]++;
+		}
+		public List<Host> getSortedHost() {
+			List<Host> sortedHosts = hostList;
+			Collections.sort(sortedHosts, new Comparator<Host>() {
+				  @Override
+				  public int compare(Host h1, Host h2) {
+				    if(hostPrimary[h1.getId()]>(hostPrimary[h2.getId()]))
+				    	return 1;
+				    else
+				    	return 0;
+				  }
+				});
+			return sortedHosts;
+		}
+//		private vmFinishTime(int vmId, int finishTime) {
+//			
+//		}
+	}
 	
-	private static DatacenterBroker createBroker(String name) {
-		DatacenterBroker broker = null;
+	private static FESTALDatacenterBroker createBroker(String name, Mapping m) {
+		FESTALDatacenterBroker broker = null;
 		try {
-			broker = new DatacenterBroker(name);
+			broker = new FESTALDatacenterBroker(name, m);
 		} catch (Exception e) {
 			e.printStackTrace();
 			return null;
@@ -185,14 +213,77 @@ public class FESTAL {
 		return broker;
 	}
 
+    private static class FESTALDatacenterBroker extends DatacenterBroker {
+    	private Mapping m; 
+    	
+		// defined in the algorithm
+		private double a = 0.2;
+		
+        public FESTALDatacenterBroker(String name, Mapping m) throws Exception {
+			super(name);
+			this.m = m;
+		}
+
+		@Override
+        protected void submitCloudlets() {
+			// Sort Ha in an increasing order by the count of scheduled primaries
+//			List<Host> hosts = m.getSortedHost();
+//			int size = hosts.size();
+//			for (int i=0; i<1/a; i++) {
+//				for (int j=(int) (size*a*i); j<size*a*(i+1); j++) {
+//					for (Vm v : hosts.get(j).getVmList()) {
+//						
+//					}
+//				}
+//			}
+//			
+    		int vmIndex = 4;
+    		List<Cloudlet> successfullySubmitted = new ArrayList<Cloudlet>();
+    		for (Cloudlet cloudlet : getCloudletList()) {
+    			Vm vm;
+    			// if user didn't bind this cloudlet and it has not been executed yet
+    			if (cloudlet.getVmId() == -1) {
+    				vm = getVmsCreatedList().get(vmIndex);
+    			} else { // submit to the specific vm
+    				vm = VmList.getById(getVmsCreatedList(), cloudlet.getVmId());
+    				if (vm == null) { // vm was not created
+    					if(!Log.isDisabled()) {
+    					    Log.printConcatLine(CloudSim.clock(), ": ", getName(), ": Postponing execution of cloudlet ",
+    							cloudlet.getCloudletId(), ": bount VM not available");
+    					}
+    					continue;
+    				}
+    			}
+
+    			if (!Log.isDisabled()) {
+    			    Log.printConcatLine(CloudSim.clock(), ": ", getName(), ": Sending cloudlet ",
+    					cloudlet.getCloudletId(), " to VM #", vm.getId());
+    			}
+
+    			cloudlet.setVmId(vm.getId());
+    			sendNow(getVmsToDatacentersMap().get(vm.getId()), CloudSimTags.CLOUDLET_SUBMIT, cloudlet);
+    			cloudletsSubmitted++;
+    			vmIndex = (vmIndex - 1 + getVmsCreatedList().size()) % getVmsCreatedList().size();
+    			getCloudletSubmittedList().add(cloudlet);
+    			successfullySubmitted.add(cloudlet);
+    			Log.printConcatLine("Cloudlet finishing time ",cloudlet.getFinishTime());
+    		}
+
+    		// remove submitted cloudlets from waiting list
+    		getCloudletList().removeAll(successfullySubmitted);
+    	}
+    }
+
 	public static class GlobalBroker extends SimEntity {
 		private static final int CREATE_BROKER = 0;
 		private List<Vm> vmList;
 		private List<Cloudlet> cloudletList;
-		private DatacenterBroker broker;
+		private List<Host> hostList;
+		private FESTALDatacenterBroker broker;
 		private int trigger = 0;
-		private LinkedList<DatacenterBroker> brokerList = new LinkedList<DatacenterBroker> ();
-
+		private LinkedList<FESTALDatacenterBroker> brokerList = new LinkedList<FESTALDatacenterBroker> ();
+		private Mapping m = new Mapping();
+		
 		public GlobalBroker(String name) {
 			super(name);
 		}
@@ -203,7 +294,7 @@ public class FESTAL {
 			case CREATE_BROKER:
 				trigger += 1;
 
-				setBroker(createBroker(super.getName()+'_'+trigger));
+				setBroker(createBroker(super.getName()+'_'+trigger,m));
 
 				//Create VMs and Cloudlets and send them to broker
 				setVmList(createVM(getBroker().getId(), 5, trigger*100)); //creating 5 vms
@@ -231,6 +322,10 @@ public class FESTAL {
 			schedule(getId(), 600, CREATE_BROKER);
 		}
 
+		public void setMapping(Mapping m) {
+			this.m = m;
+		}
+		
 		@Override
 		public void shutdownEntity() {
 		}
@@ -251,19 +346,19 @@ public class FESTAL {
 			this.cloudletList = cloudletList;
 		}
 
-		public DatacenterBroker getBroker() {
+		public FESTALDatacenterBroker getBroker() {
 			return broker;
 		}
 
-		protected void setBroker(DatacenterBroker broker) {
+		protected void setBroker(FESTALDatacenterBroker broker) {
 			this.broker = broker;
 		}
 
-		protected void addBroker(DatacenterBroker broker) {
+		protected void addBroker(FESTALDatacenterBroker broker) {
 			this.brokerList.add(broker);
 		}
 
-		public List<DatacenterBroker> getBrokers() {
+		public List<FESTALDatacenterBroker> getBrokers() {
 			return brokerList;
 		}
 	}
@@ -273,7 +368,7 @@ public class FESTAL {
 		// Here are the steps needed to create a PowerDatacenter:
 		// 1. We need to create a list to store one or more
 		//    Machines
-		List<Host> hostList = createHostList(1000);
+		List<Host> hostList = createHostList(100);
 
 		// 5. Create a DatacenterCharacteristics object that stores the
 		//    properties of a data center: architecture, OS, list of
