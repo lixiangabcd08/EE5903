@@ -8,6 +8,7 @@ import java.util.List;
 import org.cloudbus.cloudsim.Cloudlet;
 import org.cloudbus.cloudsim.CloudletSchedulerTimeShared;
 import org.cloudbus.cloudsim.Datacenter;
+import org.cloudbus.cloudsim.DatacenterBroker;
 import org.cloudbus.cloudsim.DatacenterCharacteristics;
 import org.cloudbus.cloudsim.Host;
 import org.cloudbus.cloudsim.Log;
@@ -24,10 +25,10 @@ import org.cloudbus.cloudsim.provisioners.PeProvisionerSimple;
 import org.cloudbus.cloudsim.provisioners.RamProvisionerSimple;
 
 public class Helper {
-	public FESTALDatacenterBroker createBroker(String name, Mapping m) {
-		FESTALDatacenterBroker broker = null;
+	public FestalDatacenterBroker createBroker() {
+		FestalDatacenterBroker broker = null;
 		try {
-			broker = new FESTALDatacenterBroker(name, m);
+			broker = new FestalDatacenterBroker("Broker");
 		} catch (Exception e) {
 			e.printStackTrace();
 			return null;
@@ -62,7 +63,7 @@ public class Helper {
 		// 6. Finally, we need to create a PowerDatacenter object.
 		Datacenter datacenter = null;
 		int schedulingInterval = 0;
-		VmAllocationPolicy vmAllocationPolicy = new VmAllocationPolicySimple(hostList);
+		VmAllocationPolicySimple vmAllocationPolicy = new VmAllocationPolicySimple(hostList);
 		try {
 			datacenter = new Datacenter(name, characteristics, vmAllocationPolicy, storageList, schedulingInterval);
 		} catch (Exception e) {
@@ -106,6 +107,26 @@ public class Helper {
 	    				new VmSchedulerTimeShared(peList)
 	    			)
 	    		); // This is our first machine
+			hostList.add(
+	    			new Host(
+	    				hostId,
+	    				new RamProvisionerSimple(ram),
+	    				new BwProvisionerSimple(bw),
+	    				storage,
+	    				peList,
+	    				new VmSchedulerTimeShared(peList)
+	    			)
+	    		); // This is our second machine
+			hostList.add(
+	    			new Host(
+	    				hostId,
+	    				new RamProvisionerSimple(ram),
+	    				new BwProvisionerSimple(bw),
+	    				storage,
+	    				peList,
+	    				new VmSchedulerTimeShared(peList)
+	    			)
+	    		); // This is our third machine
 		}
 		return hostList;
 	}
@@ -156,6 +177,7 @@ public class Helper {
 		return list;
 	}
 
+	@SuppressWarnings("deprecation")
 	public void printCloudletList(List<Cloudlet> list) {
 		int size = list.size();
 		Cloudlet cloudlet;

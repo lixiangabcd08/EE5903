@@ -1,32 +1,31 @@
 package EE5903;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-
 import org.cloudbus.cloudsim.Host;
 
 public class Mapping {
 		private List<Host> hostList;
 		private int[] hostPrimary;
 		
-		private Map<Integer, Double> vmFinishTime;
+		private ArrayList<Double> vmFinishTime = new ArrayList<Double>();
 		
-		private Map<Integer, Integer> cloudletDeadline;
+		private ArrayList<Integer> cloudletDeadline = new ArrayList<Integer>();
 		
 		public Mapping() {
 			
 		}
 		public void setHostList (List<Host> hostList) {
 			this.hostList = hostList;
-			hostPrimary = new int[hostList.size()];
+			hostPrimary = new int[hostList.size()]; //default 0
 		}
-		private void addPrimary (int hostId) {
+		public void addPrimary (int hostId) {
 			hostPrimary[hostId]++;
 		}
 		public List<Host> getSortedHost() {
-			List<Host> sortedHosts = hostList;
+			List<Host> sortedHosts = this.hostList;
 			Collections.sort(sortedHosts, new Comparator<Host>() {
 				  @Override
 				  public int compare(Host h1, Host h2) {
@@ -40,7 +39,7 @@ public class Mapping {
 		}
 		
 		public void setVmFinishTime(int vmId, double finishTime) {
-			vmFinishTime.put(vmId, finishTime);
+			vmFinishTime.add(vmId, finishTime);
 		}
 		
 		public double getFinishTime(int vmId) {
@@ -48,7 +47,7 @@ public class Mapping {
 		}
 		
 		public void setCloudletDeadline(int cloudletId, int deadline) {
-			cloudletDeadline.put(cloudletId, deadline);
+			cloudletDeadline.add(cloudletId, deadline);
 		}
 		
 		public int getCloudletDeadline(int cloudletId) {
