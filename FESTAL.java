@@ -30,6 +30,7 @@ public class FESTAL {
 			// Datacenters are the resource providers in CloudSim. We need at
 			// list one of them to run a CloudSim simulation
 			Datacenter datacenter = h.createDatacenter("Datacenter_0");
+			System.out.println(datacenter.getId());
 
 			// Third step: Create Broker
 			FestalDatacenterBroker broker = h.createBroker();
@@ -40,13 +41,12 @@ public class FESTAL {
 			// Sixth step: Starts the simulation
 			CloudSim.startSimulation();
 
-			CloudSim.stopSimulation();
+//			CloudSim.stopSimulation();
 
 			//Final step: Print results when simulation is over
-			List<Cloudlet> newList = broker.getCloudletReceivedList();
-			h.printCloudletList(newList);
+//			List<Cloudlet> newList = broker.getCloudletReceivedList();
+//			h.printCloudletList(newList);
 
-			Log.printLine("CloudSimExample1 finished!");
 		} catch (Exception e) {
 			e.printStackTrace();
 			Log.printLine("Unwanted errors happen");

@@ -4,11 +4,11 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Random;
 
 import org.cloudbus.cloudsim.Cloudlet;
 import org.cloudbus.cloudsim.CloudletSchedulerTimeShared;
 import org.cloudbus.cloudsim.Datacenter;
-import org.cloudbus.cloudsim.DatacenterBroker;
 import org.cloudbus.cloudsim.DatacenterCharacteristics;
 import org.cloudbus.cloudsim.Host;
 import org.cloudbus.cloudsim.Log;
@@ -17,7 +17,6 @@ import org.cloudbus.cloudsim.Storage;
 import org.cloudbus.cloudsim.UtilizationModel;
 import org.cloudbus.cloudsim.UtilizationModelFull;
 import org.cloudbus.cloudsim.Vm;
-import org.cloudbus.cloudsim.VmAllocationPolicy;
 import org.cloudbus.cloudsim.VmAllocationPolicySimple;
 import org.cloudbus.cloudsim.VmSchedulerTimeShared;
 import org.cloudbus.cloudsim.provisioners.BwProvisionerSimple;
@@ -25,6 +24,9 @@ import org.cloudbus.cloudsim.provisioners.PeProvisionerSimple;
 import org.cloudbus.cloudsim.provisioners.RamProvisionerSimple;
 
 public class Helper {
+	
+	Random randomGenerator = new Random(); // Gaussian distribution with mean 0 and standard deviation 1
+
 	public FestalDatacenterBroker createBroker() {
 		FestalDatacenterBroker broker = null;
 		try {
@@ -158,23 +160,34 @@ public class Helper {
 		// Creates a container to store Cloudlets
 		LinkedList<Cloudlet> list = new LinkedList<Cloudlet>();
 
-		//cloudlet parameters
-		long length = 40000;
-		long fileSize = 300;
-		long outputSize = 300;
+		for(int i=0;i<cloudlets;i++){
+			Cloudlet cloudlet = createRandomCloudlet(idShift + i, userId);
+			list.add(cloudlet);
+		}
+		return list;
+	}
+	
+	
+	public Cloudlet createRandomCloudlet(int cloudletId, int userId) {
 		int pesNumber = 1;
 		UtilizationModel utilizationModel = new UtilizationModelFull();
-
-		Cloudlet[] cloudlet = new Cloudlet[cloudlets];
-
-		for(int i=0;i<cloudlets;i++){
-			cloudlet[i] = new Cloudlet(idShift + i, length, pesNumber, fileSize, outputSize, utilizationModel, utilizationModel, utilizationModel);
-			// setting the owner of these Cloudlets
-			cloudlet[i].setUserId(userId);
-			list.add(cloudlet[i]);
-		}
-
-		return list;
+		// cloudlet parameters, random number is used as mean and standard deviation 
+		// TODO: find better number from literature
+		long length = getGaussianRandom(40000,4000);
+		long fileSize = getGaussianRandom(300,30);
+		long outputSize = getGaussianRandom(300,30);
+		Cloudlet newCloudlet = new Cloudlet(cloudletId,length,pesNumber,fileSize,outputSize,utilizationModel,utilizationModel,utilizationModel);
+		// setting the owner of these Cloudlets
+		newCloudlet.setUserId(userId);
+		return newCloudlet;
+	}
+	
+	public int getGaussianRandom(int mean, int range) {
+		
+		int randomNumber = (int) (randomGenerator.nextGaussian()*range + mean);
+		if (randomNumber < 0)
+			randomNumber = 0;
+		return randomNumber;
 	}
 
 	@SuppressWarnings("deprecation")
