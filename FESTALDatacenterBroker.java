@@ -27,8 +27,8 @@ public class FestalDatacenterBroker extends DatacenterBroker {
 	int childCloudletIdGap = 5000000;
 	protected List<? extends Cloudlet> cloudletList;
 	private HashMap<Integer, Cloudlet> childCloudletMap = new HashMap<Integer, Cloudlet>();
-	String algo = "FESTAL";
-//	String algo = "RAPA";
+//	String algo = "FESTAL";
+	String algo = "RAPA";
 	private int bandWidth = 100;
 	WeibullDistribution weibull= new WeibullDistribution(1,1);
 	private int hostLifeSpan = 100000000;
@@ -64,6 +64,8 @@ public class FestalDatacenterBroker extends DatacenterBroker {
 
 
 		submitCloudletList(cloudletList);
+		if(algo=="RAPA")
+			submitCloudletList(childCloudlet);
 	}
 
 
@@ -114,7 +116,7 @@ public class FestalDatacenterBroker extends DatacenterBroker {
 			double vmMip = vmList.get(0).getMips();
 			HashMap<Integer, Double> rankMap = new HashMap<Integer, Double>();
 			for (Cloudlet cloudlet : getCloudletList()) {
-				if (cloudlet.getCloudletId()>childCloudletIdGap) { // child
+				if (cloudlet.getCloudletId()>=childCloudletIdGap) { // child
 					double rank = cloudlet.getCloudletLength()/vmMip;
 					rankMap.put(cloudlet.getCloudletId(),rank);
 				} else { // parent
@@ -212,14 +214,16 @@ public class FestalDatacenterBroker extends DatacenterBroker {
 			// A finished cloudlet returned
 		case CloudSimTags.CLOUDLET_RETURN:
 			// start the other dependent task
-			int parentID = ((Cloudlet) ev.getData()).getCloudletId();
-			if(parentID<childCloudletIdGap) { // if it is a parent cloudlet
-				Cloudlet childCloudlet = childCloudletMap.get(parentID+childCloudletIdGap);
-				submitCloudletList(new LinkedList<Cloudlet>(Arrays.asList(childCloudlet)));
+			if (algo=="FESTAL") {
+				int parentID = ((Cloudlet) ev.getData()).getCloudletId();
+				if(parentID<childCloudletIdGap) { // if it is a parent cloudlet
+					Cloudlet childCloudlet = childCloudletMap.get(parentID+childCloudletIdGap);
+					submitCloudletList(new LinkedList<Cloudlet>(Arrays.asList(childCloudlet)));
 
-				submitCloudlets();
-				System.out.println("This point is done");
-				sendNow(2, CloudSimTags.CLOUDLET_SUBMIT, childCloudlet);
+					submitCloudlets();
+					System.out.println("This point is done");
+					sendNow(2, CloudSimTags.CLOUDLET_SUBMIT, childCloudlet);
+				}
 			}
 			processCloudletReturn(ev);
 			break;

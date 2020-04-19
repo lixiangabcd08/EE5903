@@ -12,6 +12,7 @@ import java.util.List;
 import org.cloudbus.cloudsim.Cloudlet;
 import org.cloudbus.cloudsim.Datacenter;
 import org.cloudbus.cloudsim.Log;
+import org.cloudbus.cloudsim.NetworkTopology;
 import org.cloudbus.cloudsim.core.CloudSim;
 
 public class FESTAL {
@@ -37,6 +38,15 @@ public class FESTAL {
 
 			broker.setHost(datacenter.getHostList());
 			broker.setUp();
+			//Sixth step: configure network
+			//load the network topology file
+			NetworkTopology.buildNetworkTopology("topology.brite");
+
+			//maps CloudSim entities to BRITE entities
+			//PowerDatacenter will correspond to BRITE node 0
+			int briteNode=0;
+			NetworkTopology.mapNode(datacenter.getId(),briteNode);
+
 
 			// Sixth step: Starts the simulation
 			CloudSim.startSimulation();
